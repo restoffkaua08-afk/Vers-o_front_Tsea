@@ -1,0 +1,316 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TSEA V-Twin | Interface Lab</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">TV</div>
+        <div>
+          <h1>TSEA V-Twin</h1>
+          <p>Laboratório de interface</p>
+        </div>
+      </div>
+
+      <nav>
+        <button class="nav-btn active" data-page="dashboard">Visão geral</button>
+        <button class="nav-btn" data-page="operacao">Operação</button>
+        <button class="nav-btn" data-page="gemeo">Gêmeo Digital</button>
+        <button class="nav-btn" data-page="historico">Histórico</button>
+        <button class="nav-btn" data-page="relatorios">Relatórios</button>
+        <button class="nav-btn" data-page="parametros">Parâmetros</button>
+      </nav>
+
+      <div class="side-status">
+        <span></span>
+        Protótipo local
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">Visão geral</h2>
+          <p id="pageSubtitle">Resumo operacional do protótipo.</p>
+        </div>
+
+        <button id="btnResetAll" class="btn ghost">Reset geral</button>
+      </header>
+
+      <section id="dashboard" class="page active">
+        <div class="metrics">
+          <div class="card metric">
+            <span>Pressão média</span>
+            <strong id="dashPressao">1000.0 mbar</strong>
+          </div>
+          <div class="card metric">
+            <span>Status</span>
+            <strong id="dashStatus">Pronto</strong>
+          </div>
+          <div class="card metric">
+            <span>Operações</span>
+            <strong id="dashOperacoes">0</strong>
+          </div>
+          <div class="card metric">
+            <span>Risco</span>
+            <strong id="dashRisco">0%</strong>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <h3>Tanques</h3>
+              <span>simulado</span>
+            </div>
+            <div id="dashboardTanks" class="list"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <h3>Eventos</h3>
+              <span>local</span>
+            </div>
+            <div id="eventList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="operacao" class="page">
+        <div class="operation-grid">
+          <div class="left">
+            <div class="pressure-display">
+              <span>Pressão média atual</span>
+              <strong id="mainPressure">1000.0</strong>
+              <small>mbar</small>
+            </div>
+
+            <div id="tankCards" class="tank-grid"></div>
+
+            <div class="card chart-card">
+              <div class="card-title">
+                <h3>Rampa de vácuo</h3>
+                <span>pressão x tempo</span>
+              </div>
+              <canvas id="operationChart"></canvas>
+            </div>
+          </div>
+
+          <div class="right">
+            <div class="card">
+              <div class="card-title">
+                <h3>Controle do ciclo</h3>
+                <span id="cycleState">parado</span>
+              </div>
+
+              <div class="actions">
+                <button id="btnStart" class="btn success">Iniciar</button>
+                <button id="btnEmergency" class="btn danger">Emergência</button>
+                <button id="btnResetCycle" class="btn ghost">Reset</button>
+              </div>
+
+              <div class="progress">
+                <div>
+                  <span>Progresso</span>
+                  <strong id="progressLabel">0%</strong>
+                </div>
+                <div class="bar"><span id="progressFill"></span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">
+                <h3>Bombas</h3>
+                <span>simulado</span>
+              </div>
+
+              <div class="machine">
+                <div>
+                  <strong>Bomba primária</strong>
+                  <span>SV630B</span>
+                </div>
+                <b id="pump1" class="badge off">OFF</b>
+              </div>
+
+              <div class="machine">
+                <div>
+                  <strong>Bomba secundária</strong>
+                  <span>Roots WSU2001</span>
+                </div>
+                <b id="pump2" class="badge off">OFF</b>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">
+                <h3>Configuração rápida</h3>
+                <span>operação</span>
+              </div>
+
+              <label>Pressão final alvo (mbar)
+                <input id="targetPressure" type="number" value="10" />
+              </label>
+
+              <label>Ligar bomba 2 em (mbar)
+                <input id="pump2Pressure" type="number" value="50" />
+              </label>
+
+              <label>Tempo estimado (s)
+                <input id="estimatedTime" type="number" value="90" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="gemeo" class="page">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <h3>Cenários</h3>
+              <span>simulação simples</span>
+            </div>
+
+            <label>Cenário
+              <select id="scenarioSelect">
+                <option value="seguro">Operação segura</option>
+                <option value="oleo">Óleo atrasado</option>
+                <option value="vazamento">Vazamento</option>
+                <option value="sensor">Falha de sensor</option>
+                <option value="bomba">Bomba desgastada</option>
+              </select>
+            </label>
+
+            <label>Volume do tanque (L)
+              <input id="simVolume" type="number" value="100" />
+            </label>
+
+            <label>Mangueira (m)
+              <input id="simHose" type="number" value="5" />
+            </label>
+
+            <button id="btnRunScenario" class="btn success full">Executar simulação</button>
+          </div>
+
+          <div class="card result">
+            <div class="card-title">
+              <h3>Resultado</h3>
+              <span id="scenarioStatus">aguardando</span>
+            </div>
+
+            <div class="risk-circle">
+              <strong id="scenarioRisk">0%</strong>
+              <span>risco</span>
+            </div>
+
+            <div id="scenarioDiagnostic" class="diagnostic">
+              Execute um cenário para visualizar o diagnóstico.
+            </div>
+          </div>
+        </div>
+
+        <div class="card chart-card">
+          <div class="card-title">
+            <h3>Curva simulada</h3>
+            <span>cenário</span>
+          </div>
+          <canvas id="scenarioChart"></canvas>
+        </div>
+      </section>
+
+      <section id="historico" class="page">
+        <div class="card">
+          <div class="card-title">
+            <h3>Histórico de operações</h3>
+            <span id="historyCount">0 registros</span>
+          </div>
+
+          <div class="table-actions">
+            <input id="historySearch" placeholder="Filtrar histórico..." />
+            <button id="btnClearHistory" class="btn ghost">Limpar</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Data/Hora</th>
+                  <th>Tanque</th>
+                  <th>Operador</th>
+                  <th>Pressão final</th>
+                  <th>Duração</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="historyTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="relatorios" class="page">
+        <div class="metrics">
+          <div class="card metric"><span>Total</span><strong id="reportTotal">0</strong></div>
+          <div class="card metric"><span>Concluídas</span><strong id="reportSuccess">0</strong></div>
+          <div class="card metric"><span>Abortadas</span><strong id="reportAbort">0</strong></div>
+          <div class="card metric"><span>Menor pressão</span><strong id="reportMin">--</strong></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <h3>Relatório simples</h3>
+            <span>local</span>
+          </div>
+          <div id="reportText" class="report-box"></div>
+
+          <div class="actions inline">
+            <button id="btnExportJson" class="btn ghost">Exportar JSON</button>
+            <button id="btnPrint" class="btn ghost">Imprimir</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="parametros" class="page">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <h3>Tanques e mangueiras</h3>
+              <span>referência</span>
+            </div>
+
+            <div class="list">
+              <div class="item"><strong>Tanque pequeno</strong><span>50 L</span></div>
+              <div class="item"><strong>Tanque médio</strong><span>100 L</span></div>
+              <div class="item"><strong>Tanque grande</strong><span>200 L</span></div>
+              <div class="item"><strong>Mangueira padrão</strong><span>5 m</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <h3>Unidades</h3>
+              <span>base</span>
+            </div>
+
+            <div class="list">
+              <div class="item"><strong>Pressão</strong><span>mbar</span></div>
+              <div class="item"><strong>Tempo</strong><span>segundos</span></div>
+              <div class="item"><strong>Volume</strong><span>litros</span></div>
+              <div class="item"><strong>Risco</strong><span>%</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./js/app.js"></script>
+</body>
+</html>
