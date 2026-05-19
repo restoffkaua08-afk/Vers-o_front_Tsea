@@ -1,10 +1,18 @@
-﻿# TSEA V-Twin — Interface Lab
+﻿# TSEA V-Twin — Front Lab
 
-Repositório de teste para experimentar novas interfaces do sistema TSEA antes de migrar para o frontend oficial em React.
+Protótipo em HTML, CSS e JavaScript para testar uma nova interface antes de migrar para o frontend oficial em React.
 
-## Como abrir
+## Telas
 
-Use servidor local:
+- Visão Geral
+- Operação
+- Gêmeo Digital
+- Histórico
+- Relatórios
+- Dados Técnicos
+
+## Como rodar
 
 ```powershell
 py -3 -m http.server 5500
+
