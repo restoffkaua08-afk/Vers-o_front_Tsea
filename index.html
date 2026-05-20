@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TSEA V-Twin | Front Lab</title>
+  <title>TSEA V-Twin | Front Lab Completo</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 
@@ -13,9 +13,7 @@
       <div>
         <span class="eyebrow">TSEA V-Twin</span>
         <h1>Sistema supervisório do processo de vácuo</h1>
-        <p>
-          Protótipo visual em HTML, CSS e JavaScript baseado na estrutura do frontend oficial em React.
-        </p>
+        <p>Laboratório visual em HTML, CSS e JavaScript baseado na estrutura do frontend oficial em React.</p>
       </div>
 
       <div class="hero-status">
@@ -25,7 +23,7 @@
       </div>
     </header>
 
-    <nav class="main-menu" id="mainMenu">
+    <nav class="main-menu">
       <button class="menu-card active" data-view="dashboard">
         <strong>Painel</strong>
         <span>Resumo operacional</span>
@@ -62,7 +60,7 @@
         <div class="section-head">
           <div>
             <h2>Painel</h2>
-            <p>Resumo executivo do estado operacional, componentes e alertas.</p>
+            <p>Resumo executivo do estado operacional, componentes, tanques e alertas.</p>
           </div>
         </div>
 
@@ -109,7 +107,7 @@
             <div class="card-title">
               <div>
                 <h3>Saúde dos componentes</h3>
-                <p>Bombas, sensores, mangueiras e sistema de óleo.</p>
+                <p>Bombas, sensores, mangueiras, tanques e sistema de óleo.</p>
               </div>
               <span class="tag">Diagnóstico</span>
             </div>
@@ -118,23 +116,38 @@
           </article>
         </div>
 
-        <article class="section-card">
-          <div class="card-title">
-            <div>
-              <h3>Eventos recentes</h3>
-              <p>Registro local das últimas ações executadas.</p>
+        <div class="dashboard-grid">
+          <article class="section-card">
+            <div class="card-title">
+              <div>
+                <h3>Resumo técnico do processo</h3>
+                <p>Dados principais usados na simulação visual.</p>
+              </div>
+              <span class="tag">Referência</span>
             </div>
-            <span class="tag">Local</span>
-          </div>
-          <div class="event-list" id="eventList"></div>
-        </article>
+
+            <div class="spec-list" id="dashboardSpecs"></div>
+          </article>
+
+          <article class="section-card">
+            <div class="card-title">
+              <div>
+                <h3>Eventos recentes</h3>
+                <p>Registro local das últimas ações executadas.</p>
+              </div>
+              <span class="tag">Local</span>
+            </div>
+
+            <div class="event-list" id="eventList"></div>
+          </article>
+        </div>
       </section>
 
       <section class="view" id="operation">
         <div class="section-head">
           <div>
             <h2>Operação</h2>
-            <p>Configuração e execução do ciclo de vácuo com tanques, bombas e curva de pressão.</p>
+            <p>Configuração e execução do ciclo de vácuo com tanques, bombas, sensores, óleo e curva de pressão.</p>
           </div>
 
           <div class="section-actions">
@@ -214,6 +227,11 @@
                 Tempo estimado (s)
                 <input id="estimatedTime" type="number" value="90" min="10" />
               </label>
+
+              <label class="field">
+                Saúde da bomba
+                <input id="pumpHealth" type="number" value="0.96" step="0.01" min="0.1" max="1" />
+              </label>
             </article>
 
             <article class="section-card">
@@ -265,7 +283,7 @@
         <div class="section-head">
           <div>
             <h2>Gêmeo Digital</h2>
-            <p>Simulação operacional com cenários, resultado e rastreabilidade técnica.</p>
+            <p>Simulação operacional com cenários, execução manual, resultado, assistente e dados técnicos.</p>
           </div>
         </div>
 
@@ -299,6 +317,16 @@
               </div>
 
               <label class="field">
+                Tanque
+                <select id="scenarioTank"></select>
+              </label>
+
+              <label class="field">
+                Mangueira
+                <select id="scenarioHose"></select>
+              </label>
+
+              <label class="field">
                 Volume do tanque (L)
                 <input id="scenarioVolume" type="number" value="1250" />
               </label>
@@ -323,7 +351,7 @@
             <div class="card-title">
               <div>
                 <h3>Simulação manual</h3>
-                <p>Entrada livre para testar combinações de pressão, óleo, bomba e mangueira.</p>
+                <p>Entrada livre para testar combinações de pressão, óleo, bomba, mangueira e falhas.</p>
               </div>
             </div>
 
@@ -332,6 +360,14 @@
               <label class="field">Roots inicia em (mbar)<input id="manualRoots" type="number" value="50" /></label>
               <label class="field">Vazão de óleo (L/min)<input id="manualOil" type="number" value="2.2" step="0.1" /></label>
               <label class="field">Saúde da bomba<input id="manualPumpHealth" type="number" value="0.96" step="0.01" /></label>
+              <label class="field">Atraso do óleo (s)<input id="manualOilDelay" type="number" value="0" /></label>
+              <label class="field">Tempo máximo (s)<input id="manualMaxCycle" type="number" value="900" /></label>
+            </div>
+
+            <div class="switch-grid">
+              <label><input id="manualLeak" type="checkbox" /> Simular vazamento de mangueira</label>
+              <label><input id="manualSensorFail" type="checkbox" /> Simular falha de sensor</label>
+              <label><input id="manualPlcLoss" type="checkbox" /> Simular perda de comunicação com CLP</label>
             </div>
 
             <button class="btn success" id="btnManualSim">Simular manualmente</button>
@@ -348,6 +384,8 @@
                 </div>
                 <span class="tag" id="simulationStatus">Aguardando</span>
               </div>
+
+              <div class="result-metrics" id="simulationMetrics"></div>
 
               <div class="risk-meter" id="riskMeter">
                 <strong id="riskValue">0%</strong>
@@ -366,6 +404,13 @@
                   <p>Resposta do ciclo simulado.</p>
                 </div>
               </div>
+
+              <div class="chart-legend">
+                <span><i class="line-real"></i>Real/simulado</span>
+                <span><i class="line-expected"></i>Esperado</span>
+                <span><i class="line-risk"></i>Risco</span>
+              </div>
+
               <div class="chart-box" id="scenarioChart"></div>
             </article>
           </div>
@@ -378,6 +423,7 @@
               </div>
             </div>
 
+            <h4>Máquinas, peças e sensores</h4>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -390,6 +436,36 @@
                   </tr>
                 </thead>
                 <tbody id="simulationTrace"></tbody>
+              </table>
+            </div>
+
+            <h4>Ações da operação simulada</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Etapa</th>
+                    <th>Resultado</th>
+                    <th>Referência</th>
+                    <th>Tipo</th>
+                    <th>Observação</th>
+                  </tr>
+                </thead>
+                <tbody id="simulationActions"></tbody>
+              </table>
+            </div>
+
+            <h4>Relatório da simulação</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Indicador</th>
+                    <th>Valor</th>
+                    <th>Descrição</th>
+                  </tr>
+                </thead>
+                <tbody id="simulationReport"></tbody>
               </table>
             </div>
           </article>
@@ -433,6 +509,28 @@
               <div class="spec-list" id="rootsSpecs"></div>
             </article>
           </div>
+
+          <div class="dashboard-grid">
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Unidades utilizadas</h3>
+                  <p>Grandezas exibidas no protótipo.</p>
+                </div>
+              </div>
+              <div class="spec-list" id="unitSpecs"></div>
+            </article>
+
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Margem de erro</h3>
+                  <p>Critério planejado para classificação operacional.</p>
+                </div>
+              </div>
+              <div class="spec-list" id="marginSpecs"></div>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -454,7 +552,28 @@
             <span class="tag" id="historyCount">0 registros</span>
           </div>
 
-          <input class="search-input" id="historySearch" placeholder="Filtrar por status, tipo, tanque ou data..." />
+          <div class="filter-grid">
+            <label class="field">Período
+              <select id="historyPeriod">
+                <option value="all">Todos</option>
+                <option value="today">Hoje</option>
+                <option value="week">Últimos 7 dias</option>
+                <option value="month">Últimos 30 dias</option>
+              </select>
+            </label>
+
+            <label class="field">Tipo
+              <select id="historyType">
+                <option value="all">Todos</option>
+                <option value="Operação">Operações</option>
+                <option value="Simulação">Simulações</option>
+              </select>
+            </label>
+
+            <label class="field">Busca
+              <input id="historySearch" placeholder="Status, tipo, tanque ou data..." />
+            </label>
+          </div>
 
           <div class="table-wrap">
             <table>
@@ -467,6 +586,8 @@
                   <th>Pressão final</th>
                   <th>Risco</th>
                   <th>Duração</th>
+                  <th>Tanque</th>
+                  <th>Mangueira</th>
                 </tr>
               </thead>
               <tbody id="historyTable"></tbody>
@@ -479,7 +600,7 @@
         <div class="section-head">
           <div>
             <h2>Relatórios</h2>
-            <p>Filtros e auditoria dos registros locais.</p>
+            <p>Filtros, auditoria e resumo dos registros locais.</p>
           </div>
         </div>
 

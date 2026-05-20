@@ -1,4 +1,4 @@
-﻿# TSEA V-Twin — Front Lab
+﻿# TSEA V-Twin — Front Lab Completo
 
 Laboratório visual em HTML, CSS e JavaScript baseado na estrutura do frontend oficial do sistema TSEA.
 
@@ -10,6 +10,12 @@ Laboratório visual em HTML, CSS e JavaScript baseado na estrutura do frontend o
 - Histórico
 - Relatórios
 - Parâmetros
+
+## Submenus incluídos
+
+- Gêmeo Digital: Cenários, Manual, Resultado, Assistente e Dados técnicos
+- Parâmetros: Tanques, Mangueiras, Receitas, Fórmulas e Operadores
+- Relatórios: Operações e Simulações
 
 ## Como rodar
 
