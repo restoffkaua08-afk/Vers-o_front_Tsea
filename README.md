@@ -13,6 +13,14 @@ Protótipo em HTML, CSS e JavaScript para testar uma nova interface antes de mig
 
 ## Como rodar
 
-```powershell
+Use o comando:
+
 py -3 -m http.server 5500
 
+Depois acesse:
+
+http://127.0.0.1:5500
+
+## Observação
+
+Este repositório é apenas um laboratório visual. O sistema oficial continua no repositório tsea-sistema.
