@@ -2,260 +2,291 @@
 const $$ = (selector) => document.querySelectorAll(selector);
 
 const tankMeta = [
-  { id: 1, volume: 80, hose: "M-01", recipe: "Regulador padrão", sensor: "PT-001" },
-  { id: 2, volume: 120, hose: "M-02", recipe: "Regulador médio", sensor: "PT-002" },
-  { id: 3, volume: 160, hose: "M-03", recipe: "Regulador grande", sensor: "PT-003" }
+  { code: "TQ-01", type: "Tanque de Processo", hose: "MG-01", pressure: 1000, expected: 8, oil: 0, risk: 0, hoseLoss: 0.8, signal: "green" },
+  { code: "TQ-02", type: "Tanque de Processo", hose: "MG-02", pressure: 1000, expected: 8, oil: 0, risk: 0, hoseLoss: 1.1, signal: "green" },
+  { code: "TQ-03", type: "Tanque de Processo", hose: "MG-03", pressure: 1000, expected: 8, oil: 0, risk: 0, hoseLoss: 0.6, signal: "green" }
+];
+
+const specs = {
+  primary: [
+    ["Modelo", "Leybold SOGEVAC SV 630 B"],
+    ["Tecnologia", "Bomba rotativa de palhetas lubrificada a óleo"],
+    ["Velocidade nominal 50 Hz", "640 m³/h"],
+    ["Pressão final sem gas ballast", "≤ 0,08 mbar"],
+    ["Óleo", "20 L"],
+    ["Potência do motor", "15 kW"],
+    ["Função", "Evacuação inicial e sustentação do conjunto."]
+  ],
+  roots: [
+    ["Modelo", "Leybold RUVAC WSU 2001"],
+    ["Tecnologia", "Bomba secundária com motor blindado refrigerado a ar"],
+    ["Velocidade nominal 50 Hz", "2050 m³/h"],
+    ["Pressão final", "< 4 × 10⁻² mbar"],
+    ["Pressão diferencial máxima", "50 mbar"],
+    ["Função", "Reforço do vácuo após faixa segura."]
+  ]
+};
+
+const scenarios = [
+  { key: "safe", title: "Operação segura", text: "Parâmetros dentro da faixa esperada.", risk: 16, factor: 5.9 },
+  { key: "oil_delay", title: "Óleo atrasado", text: "Atraso no óleo aumenta instabilidade e tempo.", risk: 58, factor: 4.2 },
+  { key: "leak", title: "Vazamento na mangueira", text: "Perda de carga e curva de vácuo mais lenta.", risk: 78, factor: 2.7 },
+  { key: "sensor", title: "Falha de sensor", text: "Leitura inconsistente exige bloqueio ou validação.", risk: 84, factor: 2.2 },
+  { key: "pump", title: "Desgaste de bomba", text: "Eficiência reduzida e ciclo mais longo.", risk: 64, factor: 3.5 }
 ];
 
 let state = {
   running: false,
-  pump1: false,
-  pump2: false,
   pressure: [1000, 1000, 1000],
-  sensors: [1000, 1000, 1000],
+  oil: [0, 0, 0],
+  risk: [0, 0, 0],
   elapsed: 0,
-  risk: 0,
-  stage: "Aguardando",
-  interval: null,
-  operationPoints: [{ x: 0, y: 1000 }],
+  stage: "Parado",
+  primaryPump: false,
+  rootsPump: false,
+  points: [{ x: 0, real: 1000, expected: 1000, risk: 0 }],
   scenarioPoints: [],
-  events: JSON.parse(localStorage.getItem("tsea_lab_events") || "[]"),
-  history: JSON.parse(localStorage.getItem("tsea_lab_history") || "[]")
+  lastSimulation: null,
+  interval: null,
+  history: JSON.parse(localStorage.getItem("tsea_lab_history") || "[]"),
+  events: JSON.parse(localStorage.getItem("tsea_lab_events") || "[]")
 };
 
+function fmt(value, suffix = "") {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "--";
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + (suffix ? " " + suffix : "");
+}
+
 function save() {
-  localStorage.setItem("tsea_lab_events", JSON.stringify(state.events));
   localStorage.setItem("tsea_lab_history", JSON.stringify(state.history));
+  localStorage.setItem("tsea_lab_events", JSON.stringify(state.events));
 }
 
-function averagePressure() {
-  return state.pressure.reduce((sum, value) => sum + value, 0) / state.pressure.length;
+function avgPressure() {
+  return state.pressure.reduce((a, b) => a + b, 0) / state.pressure.length;
 }
 
-function addEvent(title, description) {
-  state.events.unshift({
-    title,
-    description,
-    date: new Date().toLocaleString("pt-BR")
-  });
+function maxRisk() {
+  return Math.max(...state.risk, 0);
+}
 
+function addEvent(title, text) {
+  state.events.unshift({ title, text, date: new Date().toLocaleString("pt-BR") });
   state.events = state.events.slice(0, 8);
   save();
   renderEvents();
 }
 
-function setPage(page) {
-  $$(".page").forEach((el) => el.classList.remove("active"));
-  $("#" + page).classList.add("active");
-
-  $$(".nav-btn").forEach((el) => el.classList.remove("active"));
-  $(`.nav-btn[data-page="${page}"]`).classList.add("active");
-
-  if (page === "historico") renderHistory();
-  if (page === "relatorios") renderReports();
-
-  setTimeout(() => {
-    drawOperationChart();
-    drawScenarioChart();
-  }, 80);
+function toneByRisk(risk) {
+  if (risk >= 82) return "critical";
+  if (risk >= 65) return "warning";
+  return "success";
 }
 
-function getTargetPressure() {
-  return Number($("#targetPressure")?.value || 10);
+function riskClass(risk) {
+  if (risk >= 82) return "riskHigh";
+  if (risk >= 65) return "riskMedium";
+  return "riskLow";
 }
 
-function getRootsPressure() {
-  return Number($("#rootsPressure")?.value || 50);
+function statusLabel() {
+  if (state.stage === "Finalizado") return "Concluído";
+  if (state.stage === "Bomba primária" || state.stage === "Bomba secundária") return "Em execução";
+  if (state.stage === "Estabilização") return "Atenção";
+  return state.stage;
 }
 
-function getVacuumPercent(pressure) {
-  return Math.min(100, Math.max(0, (1 - pressure / 1000) * 100));
+function setView(view) {
+  $$(".view").forEach((item) => item.classList.remove("active"));
+  $("#" + view).classList.add("active");
+
+  $$(".menu-card").forEach((btn) => btn.classList.remove("active"));
+  $(`.menu-card[data-view="${view}"]`).classList.add("active");
+
+  if (view === "history") renderHistory();
+  if (view === "reports") renderReports();
 }
 
-function updateStage() {
-  const pressure = averagePressure();
-  const target = getTargetPressure();
-  const roots = getRootsPressure();
+function setTab(containerSelector, attr, valuePrefix, value) {
+  $$(containerSelector + " .tab").forEach((btn) => btn.classList.remove("active"));
+  $(`${containerSelector} .tab[${attr}="${value}"]`).classList.add("active");
 
-  if (!state.running && pressure >= 999) {
-    state.stage = "Aguardando";
-    return;
-  }
-
-  if (pressure <= target) {
-    state.stage = "Finalizado";
-    return;
-  }
-
-  if (pressure <= target * 1.5) {
-    state.stage = "Estabilização";
-    return;
-  }
-
-  if (pressure <= roots) {
-    state.stage = "Bomba Roots";
-    return;
-  }
-
-  if (state.running) {
-    state.stage = "Bomba primária";
-    return;
-  }
-
-  state.stage = "Parado";
+  $$("[id^='" + valuePrefix + "-']").forEach((panel) => panel.classList.remove("active"));
+  $("#" + valuePrefix + "-" + value).classList.add("active");
 }
 
-function getTankStatus(pressure) {
-  if (state.risk >= 90) return ["Crítico", "critical"];
-  if (!state.running && pressure >= 999) return ["Aguardando", "waiting"];
-  if (pressure <= getTargetPressure()) return ["Concluído", "done"];
-  if (pressure <= getRootsPressure()) return ["Roots ativo", "roots"];
-  return ["Em vácuo", "running"];
+function renderTankCard(meta, index, compact = false) {
+  const pressure = state.pressure[index];
+  const oil = state.oil[index];
+  const risk = state.risk[index];
+  const gasHeight = Math.max(18, Math.min(72, 74 - risk * 0.22));
+  const pressureHeight = Math.max(8, Math.min(68, risk));
+  const oilHeight = Math.max(5, Math.min(42, oil * 5));
+  const status = toneByRisk(risk);
+
+  return `
+    <article class="tank-card ${riskClass(risk)}">
+      <div class="tank-top">
+        <div>
+          <h4>${meta.code}</h4>
+          <span>${meta.type} · ${meta.hose}</span>
+        </div>
+        <b class="badge ${status}">${status === "critical" ? "Crítico" : status === "warning" ? "Atenção" : "Operacional"}</b>
+      </div>
+
+      <div class="tank-visual">
+        <div class="layer gas" style="height:${gasHeight}%">Gás</div>
+        <div class="layer pressure" style="height:${pressureHeight}%">Pressão</div>
+        <div class="layer oil" style="height:${oilHeight}%">Óleo</div>
+      </div>
+
+      <div class="tank-metrics">
+        <div class="metric-row"><span>Pressão Atual</span><strong>${fmt(pressure, "mbar")}</strong></div>
+        <div class="metric-row"><span>Curva Esperada</span><strong>${fmt(meta.expected, "mbar")}</strong></div>
+        <div class="metric-row"><span>Volume de Óleo</span><strong>${fmt(oil, "L")}</strong></div>
+        <div class="metric-row"><span>Risco Estrutural</span><strong>${fmt(risk, "%")}</strong></div>
+        ${compact ? "" : `<div class="metric-row"><span>Perda na Mangueira</span><strong>${fmt(meta.hoseLoss, "mbar")}</strong></div>`}
+      </div>
+    </article>
+  `;
 }
 
 function renderTanks() {
-  const tankCards = $("#tankCards");
-  const miniTanks = $("#miniTanks");
+  $("#operationTanks").innerHTML = tankMeta.map((tank, index) => renderTankCard(tank, index)).join("");
+  $("#dashboardTanks").innerHTML = tankMeta.map((tank, index) => renderTankCard(tank, index, true)).join("");
+}
 
-  tankCards.innerHTML = "";
-  miniTanks.innerHTML = "";
+function renderComponents() {
+  const pressure = avgPressure();
+  const risk = maxRisk();
 
-  state.pressure.forEach((pressure, index) => {
-    const meta = tankMeta[index];
-    const sensor = state.sensors[index];
-    const [statusText, statusClass] = getTankStatus(pressure);
-    const vacuum = getVacuumPercent(pressure);
-    const target = getTargetPressure();
+  const rows = [
+    ["Bomba primária", "Leybold SOGEVAC SV 630 B", state.primaryPump ? "Ligada" : "Pronta", "640 m³/h"],
+    ["Bomba secundária", "Leybold RUVAC WSU 2001", state.rootsPump ? "Ligada" : "Intertravada", "2050 m³/h"],
+    ["Sensor de pressão", "SP-TQ-01/02/03", risk >= 82 ? "Atenção" : "Online", fmt(pressure, "mbar")],
+    ["Sistema de óleo", "Injeção de óleo", state.running ? "Ativo" : "Disponível", fmt(Math.max(...state.oil), "L")]
+  ];
 
-    tankCards.innerHTML += `
-      <article class="tank-card ${statusClass}">
-        <div class="tank-head">
-          <div>
-            <h4>Tanque ${String(meta.id).padStart(2, "0")}</h4>
-            <span>${meta.recipe}</span>
-          </div>
-          <b class="tank-status ${statusClass}">${statusText}</b>
-        </div>
-
-        <div class="tank-pressure">
-          <strong>${pressure.toFixed(1)}</strong>
-          <span>mbar · pressão estimada</span>
-        </div>
-
-        <div class="tank-details">
-          <div class="detail-row"><span>Sensor</span><strong>${meta.sensor} · ${sensor.toFixed(1)} mbar</strong></div>
-          <div class="detail-row"><span>Pressão alvo</span><strong>${target} mbar</strong></div>
-          <div class="detail-row"><span>Mangueira</span><strong>${meta.hose}</strong></div>
-          <div class="detail-row"><span>Volume</span><strong>${meta.volume} L</strong></div>
-          <div class="detail-row"><span>Vácuo aplicado</span><strong>${Math.round(vacuum)}%</strong></div>
-        </div>
-
-        <select>
-          <option>${meta.hose} · selecionada</option>
-          <option>M-01 · 5 m</option>
-          <option>M-02 · 8 m</option>
-          <option>M-03 · 3 m</option>
-        </select>
-      </article>
-    `;
-
-    miniTanks.innerHTML += `
-      <div class="mini-tank">
-        <div>
-          <strong>Tanque ${meta.id}</strong><br>
-          <span>${statusText} · ${meta.hose} · ${meta.volume} L</span>
-        </div>
-        <strong>${pressure.toFixed(1)} mbar</strong>
+  $("#componentHealth").innerHTML = rows.map((row) => `
+    <div class="component-row">
+      <div>
+        <strong>${row[0]}</strong><br>
+        <span>${row[1]}</span>
       </div>
-    `;
-  });
+      <div>
+        <strong>${row[2]}</strong><br>
+        <span>${row[3]}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderEvents() {
+  if (!state.events.length) {
+    $("#eventList").innerHTML = `<div class="event-item"><strong>Nenhum evento</strong><span>Eventos aparecerão durante o uso.</span></div>`;
+    return;
+  }
+
+  $("#eventList").innerHTML = state.events.map((event) => `
+    <div class="event-item">
+      <strong>${event.title}</strong>
+      <span>${event.text}<br>${event.date}</span>
+    </div>
+  `).join("");
+}
+
+function updateStage() {
+  const pressure = avgPressure();
+  const rootsStart = Number($("#rootsStart")?.value || 50);
+  const target = Number($("#targetPressure")?.value || 8);
+
+  if (!state.running && pressure >= 999) state.stage = "Parado";
+  else if (pressure <= target) state.stage = "Finalizado";
+  else if (pressure <= target * 1.5) state.stage = "Estabilização";
+  else if (pressure <= rootsStart) state.stage = "Bomba secundária";
+  else if (state.running) state.stage = "Bomba primária";
+}
+
+function stageDescription() {
+  const map = {
+    "Parado": "Aguardando início da operação.",
+    "Bomba primária": "Evacuação inicial em andamento com bomba primária.",
+    "Bomba secundária": "Bomba secundária liberada após atingir a faixa segura.",
+    "Estabilização": "Pressão próxima da meta. Sistema estabilizando ciclo.",
+    "Finalizado": "Ciclo finalizado dentro da pressão alvo configurada."
+  };
+  return map[state.stage] || "Estado operacional não classificado.";
 }
 
 function renderSteps() {
-  const order = ["stepPrep", "stepPrimary", "stepRoots", "stepOil", "stepDone"];
-  const map = {
-    Aguardando: ["stepPrep"],
-    "Bomba primária": ["stepPrep", "stepPrimary"],
-    "Bomba Roots": ["stepPrep", "stepPrimary", "stepRoots"],
-    Estabilização: ["stepPrep", "stepPrimary", "stepRoots", "stepOil"],
-    Finalizado: ["stepPrep", "stepPrimary", "stepRoots", "stepOil", "stepDone"],
-    Parado: ["stepPrep"]
+  const order = ["prep", "primary", "roots", "oil", "done"];
+  const activeMap = {
+    "Parado": ["prep"],
+    "Bomba primária": ["prep", "primary"],
+    "Bomba secundária": ["prep", "primary", "roots"],
+    "Estabilização": ["prep", "primary", "roots", "oil"],
+    "Finalizado": ["prep", "primary", "roots", "oil", "done"]
   };
 
-  order.forEach((id) => $("#" + id).classList.remove("active", "done"));
+  const active = activeMap[state.stage] || ["prep"];
 
-  const active = map[state.stage] || ["stepPrep"];
-
-  active.forEach((id, index) => {
-    const element = $("#" + id);
-    if (index === active.length - 1) element.classList.add("active");
-    else element.classList.add("done");
+  $$("#operationSteps .step").forEach((step) => {
+    step.classList.remove("active", "done");
+    const key = step.dataset.step;
+    const index = active.indexOf(key);
+    if (index >= 0 && index === active.length - 1) step.classList.add("active");
+    else if (index >= 0) step.classList.add("done");
   });
 }
 
 function renderOperation() {
   updateStage();
 
-  const pressure = averagePressure();
-  const progress = getVacuumPercent(pressure);
+  const pressure = avgPressure();
+  const risk = maxRisk();
+  const progress = Math.min(100, Math.max(0, (1 - pressure / 1000) * 100));
 
-  $("#mainPressure").textContent = pressure.toFixed(1);
-  $("#dashPressure").textContent = `${pressure.toFixed(1)} mbar`;
-  $("#dashCycle").textContent = state.stage;
-  $("#dashRisk").textContent = `${state.risk}%`;
-  $("#dashHistory").textContent = state.history.length;
+  $("#metricPressure").textContent = fmt(pressure, "mbar");
+  $("#metricState").textContent = statusLabel();
+  $("#metricRisk").textContent = fmt(risk, "%");
+  $("#metricRecords").textContent = state.history.length;
+  $("#headerState").textContent = state.running ? "Operação em andamento" : "Operação parada";
 
-  $("#globalState").textContent = state.running ? "Operação em andamento" : "Sistema pronto";
+  $("#cycleStage").textContent = state.stage;
+  $("#cycleDescription").textContent = stageDescription();
+  $("#cycleProgress").textContent = Math.round(progress) + "%";
 
-  $("#cycleStageTitle").textContent = state.stage;
-  $("#cycleStageDescription").textContent = getStageDescription(state.stage);
-  $("#cycleLabel").textContent = state.running ? "em execução" : "parado";
-  $("#cyclePercent").textContent = `${Math.round(progress)}%`;
-  $("#progressText").textContent = `${Math.round(progress)}%`;
-  $("#progressFill").style.width = `${progress}%`;
-
-  $("#pump1").textContent = state.pump1 ? "LIGADA" : "DESLIGADA";
-  $("#pump2").textContent = state.pump2 ? "LIGADA" : "DESLIGADA";
-  $("#pump1").className = "state " + (state.pump1 ? "on" : "off");
-  $("#pump2").className = "state " + (state.pump2 ? "on" : "off");
-
-  $("#dashHistory").textContent = state.history.length;
+  $("#bigPressure").textContent = fmt(pressure);
+  $("#primaryPumpState").textContent = state.primaryPump ? "Ligada" : "Pronta";
+  $("#rootsPumpState").textContent = state.rootsPump ? "Ligada" : "Intertravada";
+  $("#primaryPumpState").className = "badge " + (state.primaryPump ? "on" : "off");
+  $("#rootsPumpState").className = "badge " + (state.rootsPump ? "on" : "off");
 
   renderTanks();
+  renderComponents();
   renderSteps();
-  drawOperationChart();
+  drawChart("operationChart", state.points);
 }
 
-function getStageDescription(stage) {
-  const descriptions = {
-    Aguardando: "Aguardando comando de início. Tanques em pressão ambiente.",
-    "Bomba primária": "Bomba primária aplicando vácuo inicial nos tanques.",
-    "Bomba Roots": "Pressão atingiu a faixa definida para acionamento da bomba Roots.",
-    Estabilização: "Pressão próxima do alvo. Sistema em fase de estabilização.",
-    Finalizado: "Ciclo concluído dentro da pressão alvo configurada.",
-    Parado: "Ciclo parado ou resetado."
-  };
-
-  return descriptions[stage] || "Estado operacional não classificado.";
-}
-
-function startCycle() {
+function startOperation() {
   if (state.running) return;
 
   state.running = true;
-  state.pump1 = true;
-  state.pump2 = false;
+  state.primaryPump = true;
+  state.rootsPump = false;
   state.elapsed = 0;
-  state.risk = 8;
   state.pressure = [1000, 1000, 1000];
-  state.sensors = [1000, 1000, 1000];
-  state.operationPoints = [{ x: 0, y: 1000 }];
+  state.oil = [0, 0, 0];
+  state.risk = [8, 8, 8];
+  state.points = [{ x: 0, real: 1000, expected: 1000, risk: 8 }];
 
-  const target = getTargetPressure();
-  const rootsPressure = getRootsPressure();
+  const target = Number($("#targetPressure").value || 8);
+  const rootsStart = Number($("#rootsStart").value || 50);
+  const oilFlow = Number($("#oilFlow").value || 2.2);
   const estimated = Number($("#estimatedTime").value || 90);
 
-  addEvent("Ciclo iniciado", "Operação de vácuo simulada iniciada pelo painel.");
+  addEvent("Operação iniciada", "Ciclo de vácuo iniciado pelo painel operacional.");
 
   clearInterval(state.interval);
 
@@ -265,30 +296,31 @@ function startCycle() {
     state.elapsed += 1;
 
     const progress = Math.min(state.elapsed / estimated, 1);
-    let basePressure = 1000 * Math.exp(-progress * 5.7);
-    basePressure = Math.max(basePressure, target);
+    const base = Math.max(target, 1000 * Math.exp(-progress * 5.8));
 
-    state.pressure = state.pressure.map((_, index) => {
-      const volumePenalty = index * 0.45;
-      return Math.max(basePressure - volumePenalty, target);
+    state.pressure = state.pressure.map((_, index) => Math.max(target, base - index * 0.6));
+    state.oil = state.oil.map((_, index) => Math.min(8, progress * oilFlow * 3 + index * 0.12));
+    state.risk = state.pressure.map((p, index) => {
+      const oilPenalty = Math.max(0, 2 - state.oil[index]) * 8;
+      return Math.min(96, Math.max(6, 18 + oilPenalty + (p > rootsStart ? 4 : 10)));
     });
 
-    state.sensors = state.pressure.map((value, index) => {
-      const sensorNoise = index * 0.18;
-      return Math.max(value + sensorNoise, target);
-    });
+    const pressure = avgPressure();
 
-    const avg = averagePressure();
-
-    if (!state.pump2 && avg <= rootsPressure) {
-      state.pump2 = true;
-      addEvent("Bomba Roots ligada", "A pressão atingiu a faixa configurada para a segunda etapa.");
+    if (!state.rootsPump && pressure <= rootsStart) {
+      state.rootsPump = true;
+      addEvent("Bomba secundária liberada", "A pressão atingiu a faixa configurada para acionamento.");
     }
 
-    state.operationPoints.push({ x: state.elapsed, y: avg });
+    state.points.push({
+      x: state.elapsed,
+      real: pressure,
+      expected: Math.max(target, 1000 * Math.exp(-progress * 6.2)),
+      risk: maxRisk() * 10
+    });
 
-    if (avg <= target) {
-      finishCycle("CONCLUÍDO");
+    if (pressure <= target) {
+      finishOperation("Concluído");
       return;
     }
 
@@ -298,171 +330,340 @@ function startCycle() {
   renderOperation();
 }
 
-function finishCycle(status) {
+function finishOperation(status) {
   clearInterval(state.interval);
 
-  const pressure = averagePressure();
+  const pressure = avgPressure();
+  const risk = maxRisk();
+
+  state.running = false;
+  state.primaryPump = false;
+  state.rootsPump = false;
 
   state.history.unshift({
     id: Date.now(),
+    type: "Operação",
     datetime: new Date().toLocaleString("pt-BR"),
-    tanks: "Tanques 1, 2 e 3",
-    operator: "Operador teste",
-    finalPressure: pressure.toFixed(2),
-    duration: `${state.elapsed}s`,
-    status
+    status,
+    pressure: pressure.toFixed(2),
+    risk: risk.toFixed(0),
+    duration: state.elapsed + "s"
   });
 
-  state.history = state.history.slice(0, 100);
+  state.history = state.history.slice(0, 80);
 
-  state.running = false;
-  state.pump1 = false;
-  state.pump2 = false;
-
-  addEvent(status === "CONCLUÍDO" ? "Ciclo concluído" : "Ciclo abortado", `Status final: ${status}.`);
+  addEvent(status === "Concluído" ? "Operação concluída" : "Operação abortada", "Status final: " + status + ".");
   save();
-  renderOperation();
-  renderHistory();
-  renderReports();
+  renderAll();
 }
 
 function emergencyStop() {
   if (state.running) {
-    state.risk = 100;
-    finishCycle("ABORTADO");
+    state.risk = [100, 100, 100];
+    finishOperation("Abortado");
   } else {
-    addEvent("Emergência acionada", "Nenhum ciclo estava em execução.");
+    addEvent("Emergência acionada", "Nenhuma operação estava em execução.");
   }
 }
 
-function resetCycle() {
+function resetOperation() {
   clearInterval(state.interval);
 
   state.running = false;
-  state.pump1 = false;
-  state.pump2 = false;
+  state.primaryPump = false;
+  state.rootsPump = false;
   state.elapsed = 0;
-  state.risk = 0;
   state.pressure = [1000, 1000, 1000];
-  state.sensors = [1000, 1000, 1000];
-  state.operationPoints = [{ x: 0, y: 1000 }];
+  state.oil = [0, 0, 0];
+  state.risk = [0, 0, 0];
+  state.points = [{ x: 0, real: 1000, expected: 1000, risk: 0 }];
 
-  addEvent("Ciclo resetado", "Valores da operação foram restaurados.");
-  renderOperation();
+  addEvent("Operação resetada", "Valores do ciclo foram restaurados.");
+  renderAll();
 }
 
-function runScenario() {
-  const scenario = $("#scenarioSelect").value;
-  const volume = Number($("#scenarioVolume").value || 100);
-  const hose = Number($("#scenarioHose").value || 5);
+function renderScenarios() {
+  $("#scenarioList").innerHTML = scenarios.map((scenario) => `
+    <button class="scenario-card" data-scenario="${scenario.key}">
+      <strong>${scenario.title}</strong>
+      <span>${scenario.text}</span>
+    </button>
+  `).join("");
 
-  const scenarios = {
-    seguro: [12, "Operacional", "Cenário estável. A operação tende a atingir a pressão alvo dentro do tempo esperado.", 5.8],
-    oleo: [56, "Atenção", "Atraso de óleo pode aumentar o tempo de ciclo e exigir acompanhamento.", 4.2],
-    vazamento: [78, "Crítico", "Possível vazamento na linha. A queda de pressão fica mais lenta e instável.", 2.6],
-    sensor: [84, "Crítico", "Falha de sensor simulada. O sistema deve bloquear decisão automática.", 2.1],
-    bomba: [64, "Atenção", "Desgaste de bomba reduz eficiência e aumenta a duração do ciclo.", 3.4]
-  };
+  $$(".scenario-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      $$(".scenario-card").forEach((item) => item.classList.remove("selected"));
+      card.classList.add("selected");
+      state.selectedScenario = card.dataset.scenario;
+    });
+  });
 
-  const selected = scenarios[scenario];
-  const risk = Math.min(100, Math.round(selected[0] + volume / 25 + hose * 1.5));
+  const first = $(".scenario-card");
+  if (first) {
+    first.classList.add("selected");
+    state.selectedScenario = first.dataset.scenario;
+  }
+}
+
+function runSimulation(manual = false) {
+  let scenario = scenarios.find((item) => item.key === state.selectedScenario) || scenarios[0];
+
+  if (manual) {
+    const target = Number($("#manualTarget").value || 8);
+    const roots = Number($("#manualRoots").value || 50);
+    const oil = Number($("#manualOil").value || 2.2);
+    const health = Number($("#manualPumpHealth").value || 0.96);
+    scenario = {
+      key: "manual",
+      title: "Simulação manual",
+      text: `Alvo ${target} mbar, Roots em ${roots} mbar, óleo ${oil} L/min, saúde ${health}.`,
+      risk: Math.min(95, 24 + Math.max(0, 2 - oil) * 18 + Math.max(0, 1 - health) * 80),
+      factor: 5.4 * health
+    };
+  }
+
+  const volume = Number($("#scenarioVolume").value || 1250);
+  const hose = Number($("#scenarioHoseLength").value || 8);
+  const oilDelay = Number($("#scenarioOilDelay").value || 0);
+
+  const risk = Math.min(98, Math.round(scenario.risk + volume / 320 + hose * 1.3 + oilDelay * 0.18));
+  const status = risk >= 82 ? "Crítico" : risk >= 65 ? "Atenção" : "Operacional";
 
   state.scenarioPoints = [];
 
-  for (let time = 0; time <= 90; time += 5) {
+  for (let t = 0; t <= 90; t += 5) {
+    const pressure = Math.max(8, 1000 * Math.exp(-(t / 90) * scenario.factor));
     state.scenarioPoints.push({
-      x: time,
-      y: Math.max(10, 1000 * Math.exp(-(time / 90) * selected[3]))
+      x: t,
+      real: pressure + (risk >= 65 ? 18 : 0),
+      expected: pressure,
+      risk: risk * 10
     });
   }
 
-  $("#scenarioStatus").textContent = selected[1];
-  $("#scenarioRisk").textContent = `${risk}%`;
-  $("#scenarioDiagnostic").innerHTML = `
-    <strong>${selected[1]}</strong><br>
-    ${selected[2]}<br><br>
-    Volume considerado: ${volume} L<br>
-    Mangueira considerada: ${hose} m
+  state.lastSimulation = {
+    scenario: scenario.title,
+    text: scenario.text,
+    risk,
+    status,
+    finalPressure: state.scenarioPoints[state.scenarioPoints.length - 1].real.toFixed(2)
+  };
+
+  $("#simulationStatus").textContent = status;
+  $("#riskValue").textContent = risk + "%";
+  $("#simulationDiagnostic").innerHTML = `
+    <strong>${status}</strong><br>
+    ${scenario.text}<br><br>
+    Volume considerado: ${fmt(volume, "L")}<br>
+    Mangueira considerada: ${fmt(hose, "m")}<br>
+    Atraso do óleo: ${fmt(oilDelay, "s")}
   `;
 
+  $("#assistantText").textContent = `A simulação "${scenario.title}" apresentou risco de ${risk}%. A próxima validação deve confirmar se esse cenário existe no processo real e quais limites técnicos a TSEA usa.`;
+
   const degrees = Math.round((risk / 100) * 360);
-  const color = risk >= 75 ? "#ef4444" : risk >= 50 ? "#f59e0b" : "#22c55e";
-  $("#riskMeter").style.background = `conic-gradient(${color} ${degrees}deg, #e2e8f0 ${degrees}deg)`;
+  const color = risk >= 82 ? "#dc2626" : risk >= 65 ? "#d97706" : "#22c55e";
+  $("#riskMeter").style.background = `conic-gradient(${color} ${degrees}deg, #dbe7e1 ${degrees}deg)`;
 
-  state.risk = risk;
-  addEvent("Simulação executada", `Cenário analisado com risco estimado de ${risk}%.`);
-  renderOperation();
-  drawScenarioChart();
-}
-
-function renderEvents() {
-  if (state.events.length === 0) {
-    $("#eventList").innerHTML = `
-      <div class="event-item">
-        <strong>Nenhum evento registrado</strong>
-        <span>Os eventos aparecerão conforme o uso do sistema.</span>
-      </div>
-    `;
-    return;
-  }
-
-  $("#eventList").innerHTML = state.events.map((event) => `
-    <div class="event-item">
-      <strong>${event.title}</strong>
-      <span>${event.description}<br>${event.date}</span>
-    </div>
-  `).join("");
-}
-
-function renderHistory() {
-  const search = ($("#historySearch")?.value || "").toLowerCase();
-
-  const rows = state.history.filter((item) => {
-    return JSON.stringify(item).toLowerCase().includes(search);
+  state.history.unshift({
+    id: Date.now(),
+    type: "Simulação",
+    datetime: new Date().toLocaleString("pt-BR"),
+    status,
+    pressure: state.lastSimulation.finalPressure,
+    risk,
+    duration: "90s"
   });
 
-  $("#historyCount").textContent = `${rows.length} registros`;
+  state.history = state.history.slice(0, 80);
+  addEvent("Simulação executada", `${scenario.title} · risco ${risk}%.`);
+  save();
 
-  if (rows.length === 0) {
-    $("#historyTable").innerHTML = `<tr><td colspan="7">Nenhuma operação registrada.</td></tr>`;
+  renderSimulationTrace();
+  drawChart("scenarioChart", state.scenarioPoints);
+  renderReports();
+  setTab("#twinTabs", "data-tab", "tab", "result");
+}
+
+function renderSimulationTrace() {
+  const sim = state.lastSimulation;
+  if (!sim) {
+    $("#simulationTrace").innerHTML = `<tr><td colspan="5">Nenhuma simulação executada.</td></tr>`;
     return;
   }
 
-  $("#historyTable").innerHTML = rows.map((item) => `
+  const rows = [
+    ["Bomba primária", "Leybold SOGEVAC SV 630 B", "Pronta", "640 m³/h", "Evacuação inicial"],
+    ["Bomba secundária", "Leybold RUVAC WSU 2001", sim.risk >= 82 ? "Bloqueada" : "Liberada", "2050 m³/h", "Reforço de vácuo"],
+    ["Tanque de processo", "TQ-01/TQ-02/TQ-03", sim.status, fmt(sim.finalPressure, "mbar"), "Validação de pressão"],
+    ["Sensor de pressão", "SP-TQ", sim.risk >= 82 ? "Atenção" : "Online", fmt(sim.risk, "%"), "Alimentar diagnóstico"],
+    ["Mangueira", "MG selecionada", sim.risk >= 65 ? "Perda elevada" : "Operacional", "Fator simulado", "Condução de vácuo"]
+  ];
+
+  $("#simulationTrace").innerHTML = rows.map((row) => `
     <tr>
-      <td>${item.id}</td>
-      <td>${item.datetime}</td>
-      <td>${item.tanks}</td>
-      <td>${item.operator}</td>
-      <td>${item.finalPressure} mbar</td>
-      <td>${item.duration}</td>
-      <td class="${item.status === "CONCLUÍDO" ? "status-ok" : "status-bad"}">${item.status}</td>
+      <td>${row[0]}</td>
+      <td>${row[1]}</td>
+      <td>${row[2]}</td>
+      <td>${row[3]}</td>
+      <td>${row[4]}</td>
     </tr>
   `).join("");
 }
 
+function renderSpecs() {
+  $("#primarySpecs").innerHTML = specs.primary.map((item) => `
+    <div class="param-row"><span>${item[0]}</span><strong>${item[1]}</strong></div>
+  `).join("");
+
+  $("#rootsSpecs").innerHTML = specs.roots.map((item) => `
+    <div class="param-row"><span>${item[0]}</span><strong>${item[1]}</strong></div>
+  `).join("");
+}
+
+function renderHistory() {
+  const term = ($("#historySearch")?.value || "").toLowerCase();
+  const rows = state.history.filter((item) => JSON.stringify(item).toLowerCase().includes(term));
+
+  $("#historyCount").textContent = rows.length + " registros";
+
+  if (!rows.length) {
+    $("#historyTable").innerHTML = `<tr><td colspan="7">Nenhum registro encontrado.</td></tr>`;
+    return;
+  }
+
+  $("#historyTable").innerHTML = rows.map((item) => {
+    const cls = item.status === "Operacional" || item.status === "Concluído" ? "status-ok" : item.status === "Atenção" ? "status-warn" : "status-bad";
+    return `
+      <tr>
+        <td>${item.id}</td>
+        <td>${item.type}</td>
+        <td>${item.datetime}</td>
+        <td class="${cls}">${item.status}</td>
+        <td>${fmt(item.pressure, "mbar")}</td>
+        <td>${fmt(item.risk, "%")}</td>
+        <td>${item.duration}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function renderReports() {
   const total = state.history.length;
-  const success = state.history.filter((item) => item.status === "CONCLUÍDO").length;
-  const abort = state.history.filter((item) => item.status === "ABORTADO").length;
-  const pressures = state.history.map((item) => Number(item.finalPressure)).filter(Number.isFinite);
-  const minPressure = pressures.length ? Math.min(...pressures).toFixed(2) : "--";
+  const ok = state.history.filter((item) => item.status === "Operacional" || item.status === "Concluído").length;
+  const warn = total - ok;
+  const pressures = state.history.map((item) => Number(item.pressure)).filter(Number.isFinite);
+  const min = pressures.length ? Math.min(...pressures).toFixed(2) : "--";
 
   $("#reportTotal").textContent = total;
-  $("#reportSuccess").textContent = success;
-  $("#reportAbort").textContent = abort;
-  $("#reportMin").textContent = minPressure === "--" ? "--" : `${minPressure} mbar`;
+  $("#reportOk").textContent = ok;
+  $("#reportWarn").textContent = warn;
+  $("#reportMinPressure").textContent = min === "--" ? "--" : fmt(min, "mbar");
 
-  $("#reportText").innerHTML = total === 0
-    ? "Nenhuma operação registrada ainda. Inicie uma operação para gerar dados."
-    : `
-      <strong>Resumo operacional</strong><br><br>
-      Foram registradas <strong>${total}</strong> operações no protótipo.
-      Desse total, <strong>${success}</strong> foram concluídas e <strong>${abort}</strong> foram abortadas.
-      A menor pressão final registrada foi <strong>${minPressure} mbar</strong>.
-      <br><br>
-      Este relatório é local e serve para validar a organização visual antes de migrar a interface para React.
-    `;
+  $("#reportText").innerHTML = total
+    ? `Foram registrados <strong>${total}</strong> itens no laboratório visual. Desse total, <strong>${ok}</strong> estão operacionais/concluídos e <strong>${warn}</strong> exigem atenção ou análise. A menor pressão final registrada foi <strong>${min} mbar</strong>.`
+    : "Nenhum registro disponível. Execute uma operação ou simulação para gerar relatório.";
+}
+
+function renderParameters(tab = "tanks") {
+  const content = {
+    tanks: {
+      title: "Tanques",
+      subtitle: "Cadastro visual dos tanques do processo.",
+      rows: [
+        ["TQ-01", "Tanque de processo", "1250 L", "Limite estrutural 35 mbar"],
+        ["TQ-02", "Tanque de processo", "1250 L", "Operação de reguladores"],
+        ["TQ-03", "Tanque de processo", "1250 L", "Controle simultâneo"]
+      ]
+    },
+    hoses: {
+      title: "Mangueiras",
+      subtitle: "Cadastro visual das mangueiras.",
+      rows: [
+        ["MG-01", "5 m", "Baixa perda", "Operacional"],
+        ["MG-02", "8 m", "Perda média", "Atenção"],
+        ["MG-03", "3 m", "Baixa perda", "Operacional"]
+      ]
+    },
+    recipes: {
+      title: "Receitas",
+      subtitle: "Receitas básicas do ciclo.",
+      rows: [
+        ["Receita padrão", "8 mbar", "90 s", "Óleo 2,2 L/min"],
+        ["Receita segura", "10 mbar", "110 s", "Óleo 2,5 L/min"],
+        ["Receita teste", "20 mbar", "60 s", "Validação rápida"]
+      ]
+    },
+    formulas: {
+      title: "Fórmulas",
+      subtitle: "Referências técnicas simplificadas.",
+      rows: [
+        ["Queda de pressão", "P(t)=P0·e^(-kt)", "Curva esperada"],
+        ["Desvio percentual", "|medido-esperado|/esperado×100", "Margem de erro"],
+        ["Risco", "Pressão + óleo + mangueira + bomba", "Classificação"]
+      ]
+    },
+    operators: {
+      title: "Operadores",
+      subtitle: "Usuários de exemplo.",
+      rows: [
+        ["Operador teste", "Produção", "Pode iniciar ciclo", "Ativo"],
+        ["Supervisor", "Gestão", "Consulta relatórios", "Ativo"],
+        ["Manutenção", "Técnico", "Consulta diagnóstico", "Ativo"]
+      ]
+    }
+  }[tab];
+
+  $("#paramTitle").textContent = content.title;
+  $("#paramSubtitle").textContent = content.subtitle;
+
+  $("#paramContent").innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          ${content.rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function drawChart(containerId, points) {
+  const box = $("#" + containerId);
+  if (!box) return;
+
+  if (!points || points.length < 2) {
+    box.innerHTML = `<div class="empty-chart">A curva aparecerá após executar uma operação ou simulação.</div>`;
+    return;
+  }
+
+  const values = points.flatMap((point) => [point.real, point.expected, point.risk || 0]).map(Number);
+  const max = Math.max(...values, 10);
+  const min = Math.min(...values, 0);
+  const span = Math.max(max - min, 1);
+
+  function line(key) {
+    return points.map((point, index) => {
+      const value = Number(point[key] || 0);
+      const x = (index / Math.max(points.length - 1, 1)) * 100;
+      const y = 92 - ((value - min) / span) * 82;
+      return `${x},${y}`;
+    }).join(" ");
+  }
+
+  box.innerHTML = `
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="fillReal" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="rgba(37,99,235,.25)"/>
+          <stop offset="100%" stop-color="rgba(37,99,235,0)"/>
+        </linearGradient>
+      </defs>
+      <polyline points="${line("expected")}" fill="none" stroke="#22c55e" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+      <polyline points="${line("risk")}" fill="none" stroke="#dc2626" stroke-width="1.4" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>
+      <polyline points="${line("real")}" fill="none" stroke="#2563eb" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+    </svg>
+  `;
 }
 
 function clearHistory() {
@@ -477,88 +678,35 @@ function exportJson() {
   const blob = new Blob([JSON.stringify(state.history, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-
   anchor.href = url;
-  anchor.download = "historico-tsea-front-lab.json";
+  anchor.download = "tsea-front-lab-historico.json";
   anchor.click();
-
   URL.revokeObjectURL(url);
 }
 
-function drawLineChart(canvasId, points, color) {
-  const canvas = $("#" + canvasId);
-  if (!canvas) return;
-
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-
-  ctx.clearRect(0, 0, width, height);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.strokeStyle = "#e2e8f0";
-  ctx.lineWidth = 1;
-
-  for (let i = 0; i <= 5; i++) {
-    const y = (height / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-
-  if (!points || points.length < 2) {
-    ctx.fillStyle = "#64748b";
-    ctx.font = "14px Segoe UI";
-    ctx.fillText("A curva aparecerá após iniciar a operação ou executar uma simulação.", 18, 30);
-    return;
-  }
-
-  const maxX = Math.max(...points.map((p) => p.x), 1);
-  const minY = 0;
-  const maxY = 1000;
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-
-  points.forEach((point, index) => {
-    const x = (point.x / maxX) * (width - 30) + 15;
-    const y = height - ((point.y - minY) / (maxY - minY)) * (height - 30) - 15;
-
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-
-  ctx.stroke();
-
-  ctx.fillStyle = "#64748b";
-  ctx.font = "12px Segoe UI";
-  ctx.fillText("Pressão (mbar)", 18, 18);
-  ctx.fillText("Tempo (s)", width - 75, height - 12);
-}
-
-function drawOperationChart() {
-  drawLineChart("operationCanvas", state.operationPoints, "#3b82f6");
-}
-
-function drawScenarioChart() {
-  drawLineChart("scenarioCanvas", state.scenarioPoints, "#22c55e");
-}
-
 function bindEvents() {
-  $$(".nav-btn").forEach((button) => {
-    button.addEventListener("click", () => setPage(button.dataset.page));
-  });
+  $$(".menu-card").forEach((btn) => btn.addEventListener("click", () => setView(btn.dataset.view)));
 
-  $("#btnStart").addEventListener("click", startCycle);
+  $("#btnStart").addEventListener("click", startOperation);
   $("#btnEmergency").addEventListener("click", emergencyStop);
-  $("#btnReset").addEventListener("click", resetCycle);
-  $("#btnRunScenario").addEventListener("click", runScenario);
-  $("#btnClearHistory").addEventListener("click", clearHistory);
+  $("#btnReset").addEventListener("click", resetOperation);
+
+  $("#btnRunScenario").addEventListener("click", () => runSimulation(false));
+  $("#btnManualSim").addEventListener("click", () => runSimulation(true));
+
+  $$("#twinTabs .tab").forEach((btn) => btn.addEventListener("click", () => setTab("#twinTabs", "data-tab", "tab", btn.dataset.tab)));
+  $$("#reportTabs .tab").forEach((btn) => btn.addEventListener("click", () => {
+    $$("#reportTabs .tab").forEach((item) => item.classList.remove("active"));
+    btn.classList.add("active");
+  }));
+  $$("#paramTabs .tab").forEach((btn) => btn.addEventListener("click", () => {
+    $$("#paramTabs .tab").forEach((item) => item.classList.remove("active"));
+    btn.classList.add("active");
+    renderParameters(btn.dataset.paramTab);
+  }));
+
   $("#historySearch").addEventListener("input", renderHistory);
+  $("#btnClearHistory").addEventListener("click", clearHistory);
   $("#btnExportJson").addEventListener("click", exportJson);
   $("#btnPrint").addEventListener("click", () => window.print());
 }
@@ -566,10 +714,13 @@ function bindEvents() {
 function renderAll() {
   renderOperation();
   renderEvents();
+  renderSpecs();
+  renderScenarios();
   renderHistory();
   renderReports();
-  drawOperationChart();
-  drawScenarioChart();
+  renderSimulationTrace();
+  renderParameters("tanks");
+  drawChart("scenarioChart", state.scenarioPoints);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

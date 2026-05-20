@@ -3,232 +3,211 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TSEA V-Twin | Interface Lab</title>
+  <title>TSEA V-Twin | Front Lab</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 
 <body>
-  <div class="app">
-    <header class="top-header">
-      <div class="brand">
-        <div class="brand-icon">T</div>
-        <div>
-          <h1>TSEA V-Twin</h1>
-          <p>Supervisório industrial · Operação, simulação, histórico e relatórios</p>
-        </div>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">TSEA V-Twin</span>
+        <h1>Sistema supervisório do processo de vácuo</h1>
+        <p>
+          Protótipo visual em HTML, CSS e JavaScript baseado na estrutura do frontend oficial em React.
+        </p>
       </div>
 
-      <div class="header-status">
-        <div class="status-chip"><span class="status-dot ok"></span>API simulada</div>
-        <div class="status-chip"><span class="status-dot ok"></span>CLP em espera</div>
-        <div class="status-chip" id="globalState">Sistema pronto</div>
+      <div class="hero-status">
+        <div class="status-chip ok">API simulada</div>
+        <div class="status-chip ok">CLP em espera</div>
+        <div class="status-chip" id="headerState">Operação parada</div>
       </div>
     </header>
 
-    <nav class="main-nav">
-      <button class="nav-btn active" data-page="dashboard">Visão Geral</button>
-      <button class="nav-btn" data-page="operacao">Operação</button>
-      <button class="nav-btn" data-page="gemeo">Gêmeo Digital</button>
-      <button class="nav-btn" data-page="historico">Histórico</button>
-      <button class="nav-btn" data-page="relatorios">Relatórios</button>
-      <button class="nav-btn" data-page="dados">Dados Técnicos</button>
+    <nav class="main-menu" id="mainMenu">
+      <button class="menu-card active" data-view="dashboard">
+        <strong>Painel</strong>
+        <span>Resumo operacional</span>
+      </button>
+
+      <button class="menu-card" data-view="operation">
+        <strong>Operação</strong>
+        <span>Configuração e execução</span>
+      </button>
+
+      <button class="menu-card" data-view="twin">
+        <strong>Gêmeo Digital</strong>
+        <span>Simulação operacional</span>
+      </button>
+
+      <button class="menu-card" data-view="history">
+        <strong>Histórico</strong>
+        <span>Ciclos e simulações</span>
+      </button>
+
+      <button class="menu-card" data-view="reports">
+        <strong>Relatórios</strong>
+        <span>Filtros e auditoria</span>
+      </button>
+
+      <button class="menu-card" data-view="parameters">
+        <strong>Parâmetros</strong>
+        <span>Cadastros técnicos</span>
+      </button>
     </nav>
 
     <main>
-      <section id="dashboard" class="page active">
-        <div class="page-title">
+      <section class="view active" id="dashboard">
+        <div class="section-head">
           <div>
-            <span class="eyebrow">Painel executivo</span>
-            <h2>Visão Geral</h2>
-            <p>Resumo da operação atual, pressão dos tanques, estado das bombas e eventos recentes.</p>
+            <h2>Painel</h2>
+            <p>Resumo executivo do estado operacional, componentes e alertas.</p>
           </div>
         </div>
 
-        <div class="kpi-grid">
-          <article class="kpi-card">
+        <div class="metrics-grid">
+          <article class="metric-card">
             <span>Pressão média</span>
-            <strong id="dashPressure">1000.0 mbar</strong>
-            <small>Média dos tanques ativos</small>
+            <strong id="metricPressure">1000,00 mbar</strong>
+            <small>Tanques monitorados</small>
           </article>
 
-          <article class="kpi-card">
-            <span>Estado do ciclo</span>
-            <strong id="dashCycle">Aguardando</strong>
-            <small>Etapa operacional atual</small>
+          <article class="metric-card">
+            <span>Estado</span>
+            <strong id="metricState">Parado</strong>
+            <small>Estado atual do ciclo</small>
           </article>
 
-          <article class="kpi-card">
-            <span>Risco operacional</span>
-            <strong id="dashRisk">0%</strong>
-            <small>Estimativa do protótipo</small>
+          <article class="metric-card">
+            <span>Risco estrutural</span>
+            <strong id="metricRisk">0%</strong>
+            <small>Estimativa visual</small>
           </article>
 
-          <article class="kpi-card">
+          <article class="metric-card">
             <span>Registros</span>
-            <strong id="dashHistory">0</strong>
-            <small>Operações no histórico</small>
+            <strong id="metricRecords">0</strong>
+            <small>Histórico local</small>
           </article>
         </div>
 
         <div class="dashboard-grid">
-          <article class="panel">
-            <div class="panel-title">
+          <article class="section-card">
+            <div class="card-title">
               <div>
-                <h3>Tanques monitorados</h3>
-                <p>Resumo por tanque, mangueira e estado.</p>
+                <h3>Tanques de processo</h3>
+                <p>Visão resumida por tanque, mangueira, óleo e risco.</p>
               </div>
-              <span>tempo real</span>
+              <span class="tag">Tempo real</span>
             </div>
-            <div class="mini-tanks" id="miniTanks"></div>
+
+            <div class="tank-grid" id="dashboardTanks"></div>
           </article>
 
-          <article class="panel">
-            <div class="panel-title">
+          <article class="section-card">
+            <div class="card-title">
               <div>
-                <h3>Eventos recentes</h3>
-                <p>Registro local das ações executadas.</p>
+                <h3>Saúde dos componentes</h3>
+                <p>Bombas, sensores, mangueiras e sistema de óleo.</p>
               </div>
-              <span>localStorage</span>
+              <span class="tag">Diagnóstico</span>
             </div>
-            <div class="event-list" id="eventList"></div>
+
+            <div class="component-list" id="componentHealth"></div>
           </article>
         </div>
+
+        <article class="section-card">
+          <div class="card-title">
+            <div>
+              <h3>Eventos recentes</h3>
+              <p>Registro local das últimas ações executadas.</p>
+            </div>
+            <span class="tag">Local</span>
+          </div>
+          <div class="event-list" id="eventList"></div>
+        </article>
       </section>
 
-      <section id="operacao" class="page">
-        <div class="page-title">
+      <section class="view" id="operation">
+        <div class="section-head">
           <div>
-            <span class="eyebrow">Painel operacional</span>
             <h2>Operação</h2>
-            <p>Controle do ciclo de vácuo com tanques, sensores, bombas, estado do ciclo e curva de pressão.</p>
+            <p>Configuração e execução do ciclo de vácuo com tanques, bombas e curva de pressão.</p>
+          </div>
+
+          <div class="section-actions">
+            <button class="btn success" id="btnStart">Iniciar operação</button>
+            <button class="btn danger" id="btnEmergency">Emergência</button>
+            <button class="btn neutral" id="btnReset">Reset</button>
           </div>
         </div>
 
         <div class="operation-layout">
           <div class="operation-main">
-            <article class="cycle-card" id="cycleCard">
+            <article class="cycle-banner">
               <div>
-                <span>Estado do ciclo</span>
-                <h3 id="cycleStageTitle">Aguardando início</h3>
-                <p id="cycleStageDescription">Configure os parâmetros e inicie a operação para acompanhar o processo.</p>
+                <span>Estado operacional</span>
+                <h3 id="cycleStage">Parado</h3>
+                <p id="cycleDescription">Aguardando início da operação.</p>
               </div>
 
-              <div class="cycle-progress">
-                <strong id="cyclePercent">0%</strong>
-                <span>progresso</span>
+              <div class="cycle-meter">
+                <strong id="cycleProgress">0%</strong>
+                <span>vácuo aplicado</span>
               </div>
             </article>
 
-            <div class="tank-grid" id="tankCards"></div>
+            <div class="tank-grid" id="operationTanks"></div>
 
-            <article class="panel">
-              <div class="panel-title">
+            <article class="section-card">
+              <div class="card-title">
                 <div>
-                  <h3>Rampa de vácuo</h3>
-                  <p>Curva de pressão média ao longo do ciclo.</p>
+                  <h3>Curva operacional</h3>
+                  <p>Pressão real/simulada, curva esperada e carga estrutural.</p>
                 </div>
-                <span>mbar × segundos</span>
+                <span class="tag">Gráfico SVG</span>
               </div>
-              <div class="canvas-wrap">
-                <canvas id="operationCanvas" width="900" height="300"></canvas>
+
+              <div class="chart-legend">
+                <span><i class="line-real"></i>Pressão real/simulada</span>
+                <span><i class="line-expected"></i>Curva esperada</span>
+                <span><i class="line-risk"></i>Carga estrutural</span>
               </div>
+
+              <div class="chart-box" id="operationChart"></div>
             </article>
           </div>
 
           <aside class="operation-side">
-            <article class="pressure-board">
+            <article class="pressure-display">
               <span>Pressão média atual</span>
-              <strong id="mainPressure">1000.0</strong>
+              <strong id="bigPressure">1000,00</strong>
               <small>mbar</small>
             </article>
 
-            <article class="panel">
-              <div class="panel-title">
+            <article class="section-card">
+              <div class="card-title">
                 <div>
-                  <h3>Controle do ciclo</h3>
-                  <p>Comandos principais da operação.</p>
+                  <h3>Configuração do ciclo</h3>
+                  <p>Parâmetros principais da operação.</p>
                 </div>
-                <span id="cycleLabel">parado</span>
-              </div>
-
-              <div class="button-stack">
-                <button class="btn success" id="btnStart">Iniciar operação</button>
-                <button class="btn danger" id="btnEmergency">Parada de emergência</button>
-                <button class="btn neutral" id="btnReset">Resetar ciclo</button>
-              </div>
-
-              <div class="progress-box">
-                <div class="progress-header">
-                  <span>Progresso do ciclo</span>
-                  <strong id="progressText">0%</strong>
-                </div>
-                <div class="progress-bar">
-                  <div id="progressFill"></div>
-                </div>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-title">
-                <div>
-                  <h3>Etapas do processo</h3>
-                  <p>Sequência operacional simulada.</p>
-                </div>
-                <span>estado</span>
-              </div>
-
-              <div class="steps">
-                <div class="step active" id="stepPrep"><b>1</b><span>Preparação</span></div>
-                <div class="step" id="stepPrimary"><b>2</b><span>Bomba primária</span></div>
-                <div class="step" id="stepRoots"><b>3</b><span>Bomba Roots</span></div>
-                <div class="step" id="stepOil"><b>4</b><span>Óleo / estabilização</span></div>
-                <div class="step" id="stepDone"><b>5</b><span>Finalização</span></div>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-title">
-                <div>
-                  <h3>Máquinas</h3>
-                  <p>Estado dos acionamentos principais.</p>
-                </div>
-                <span>bombas</span>
-              </div>
-
-              <div class="machine-card">
-                <div>
-                  <strong>Bomba primária</strong>
-                  <span>Leybold SOGEVAC SV630B</span>
-                </div>
-                <b id="pump1" class="state off">DESLIGADA</b>
-              </div>
-
-              <div class="machine-card">
-                <div>
-                  <strong>Bomba Roots</strong>
-                  <span>Leybold RUVAC WSU2001</span>
-                </div>
-                <b id="pump2" class="state off">DESLIGADA</b>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-title">
-                <div>
-                  <h3>Configuração rápida</h3>
-                  <p>Parâmetros básicos do ciclo.</p>
-                </div>
-                <span>operação</span>
               </div>
 
               <label class="field">
                 Pressão final alvo (mbar)
-                <input id="targetPressure" type="number" value="10" min="1" />
+                <input id="targetPressure" type="number" value="8" min="1" />
               </label>
 
               <label class="field">
-                Acionar bomba Roots em (mbar)
-                <input id="rootsPressure" type="number" value="50" min="1" />
+                Acionar Roots em (mbar)
+                <input id="rootsStart" type="number" value="50" min="1" />
+              </label>
+
+              <label class="field">
+                Vazão de óleo (L/min)
+                <input id="oilFlow" type="number" value="2.2" step="0.1" />
               </label>
 
               <label class="field">
@@ -236,122 +215,258 @@
                 <input id="estimatedTime" type="number" value="90" min="10" />
               </label>
             </article>
+
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Bombas</h3>
+                  <p>Estado dos acionamentos principais.</p>
+                </div>
+              </div>
+
+              <div class="machine-card">
+                <div>
+                  <strong>Bomba primária</strong>
+                  <span>Leybold SOGEVAC SV 630 B</span>
+                </div>
+                <b id="primaryPumpState" class="badge off">Pronta</b>
+              </div>
+
+              <div class="machine-card">
+                <div>
+                  <strong>Bomba secundária</strong>
+                  <span>Leybold RUVAC WSU 2001</span>
+                </div>
+                <b id="rootsPumpState" class="badge off">Intertravada</b>
+              </div>
+            </article>
+
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Etapas</h3>
+                  <p>Sequência operacional simulada.</p>
+                </div>
+              </div>
+
+              <div class="steps" id="operationSteps">
+                <div class="step active" data-step="prep"><b>1</b><span>Preparação</span></div>
+                <div class="step" data-step="primary"><b>2</b><span>Bomba primária</span></div>
+                <div class="step" data-step="roots"><b>3</b><span>Bomba secundária</span></div>
+                <div class="step" data-step="oil"><b>4</b><span>Óleo e estabilidade</span></div>
+                <div class="step" data-step="done"><b>5</b><span>Finalização</span></div>
+              </div>
+            </article>
           </aside>
         </div>
       </section>
 
-      <section id="gemeo" class="page">
-        <div class="page-title">
+      <section class="view" id="twin">
+        <div class="section-head">
           <div>
-            <span class="eyebrow">Simulação</span>
             <h2>Gêmeo Digital</h2>
-            <p>Cenários para analisar comportamento, risco e curva prevista antes da operação.</p>
+            <p>Simulação operacional com cenários, resultado e rastreabilidade técnica.</p>
           </div>
         </div>
 
-        <div class="digital-grid">
-          <article class="panel">
-            <div class="panel-title">
-              <div>
-                <h3>Criar cenário</h3>
-                <p>Entrada simples para simulação de risco.</p>
+        <div class="tabs" id="twinTabs">
+          <button class="tab active" data-tab="scenarios">Cenários</button>
+          <button class="tab" data-tab="manual">Manual</button>
+          <button class="tab" data-tab="result">Resultado</button>
+          <button class="tab" data-tab="assistant">Assistente</button>
+          <button class="tab" data-tab="technical">Dados técnicos</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-scenarios">
+          <div class="digital-grid">
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Cenários de simulação</h3>
+                  <p>Escolha um cenário para avaliar comportamento e risco.</p>
+                </div>
               </div>
-              <span>cenário</span>
+
+              <div class="scenario-list" id="scenarioList"></div>
+            </article>
+
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Configuração rápida</h3>
+                  <p>Valores usados no cenário selecionado.</p>
+                </div>
+              </div>
+
+              <label class="field">
+                Volume do tanque (L)
+                <input id="scenarioVolume" type="number" value="1250" />
+              </label>
+
+              <label class="field">
+                Comprimento da mangueira (m)
+                <input id="scenarioHoseLength" type="number" value="8" />
+              </label>
+
+              <label class="field">
+                Atraso do óleo (s)
+                <input id="scenarioOilDelay" type="number" value="0" />
+              </label>
+
+              <button class="btn success full" id="btnRunScenario">Executar simulação</button>
+            </article>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-manual">
+          <article class="section-card">
+            <div class="card-title">
+              <div>
+                <h3>Simulação manual</h3>
+                <p>Entrada livre para testar combinações de pressão, óleo, bomba e mangueira.</p>
+              </div>
             </div>
 
-            <label class="field">
-              Cenário
-              <select id="scenarioSelect">
-                <option value="seguro">Operação segura</option>
-                <option value="oleo">Óleo atrasado</option>
-                <option value="vazamento">Vazamento na linha</option>
-                <option value="sensor">Falha de sensor</option>
-                <option value="bomba">Desgaste de bomba</option>
-              </select>
-            </label>
+            <div class="form-grid">
+              <label class="field">Pressão alvo (mbar)<input id="manualTarget" type="number" value="8" /></label>
+              <label class="field">Roots inicia em (mbar)<input id="manualRoots" type="number" value="50" /></label>
+              <label class="field">Vazão de óleo (L/min)<input id="manualOil" type="number" value="2.2" step="0.1" /></label>
+              <label class="field">Saúde da bomba<input id="manualPumpHealth" type="number" value="0.96" step="0.01" /></label>
+            </div>
 
-            <label class="field">
-              Volume do tanque (L)
-              <input id="scenarioVolume" type="number" value="100" />
-            </label>
-
-            <label class="field">
-              Comprimento da mangueira (m)
-              <input id="scenarioHose" type="number" value="5" />
-            </label>
-
-            <button class="btn success full" id="btnRunScenario">Executar simulação</button>
+            <button class="btn success" id="btnManualSim">Simular manualmente</button>
           </article>
+        </div>
 
-          <article class="panel">
-            <div class="panel-title">
-              <div>
-                <h3>Resultado</h3>
-                <p>Classificação da simulação.</p>
+        <div class="tab-panel" id="tab-result">
+          <div class="digital-grid">
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Resultado da simulação</h3>
+                  <p>Status, risco e recomendação.</p>
+                </div>
+                <span class="tag" id="simulationStatus">Aguardando</span>
               </div>
-              <span id="scenarioStatus">aguardando</span>
+
+              <div class="risk-meter" id="riskMeter">
+                <strong id="riskValue">0%</strong>
+                <span>risco</span>
+              </div>
+
+              <div class="diagnostic" id="simulationDiagnostic">
+                Execute um cenário para visualizar o diagnóstico.
+              </div>
+            </article>
+
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Curva prevista</h3>
+                  <p>Resposta do ciclo simulado.</p>
+                </div>
+              </div>
+              <div class="chart-box" id="scenarioChart"></div>
+            </article>
+          </div>
+
+          <article class="section-card">
+            <div class="card-title">
+              <div>
+                <h3>Rastreabilidade da simulação</h3>
+                <p>Máquina, peça, sensor, mangueira e ações simuladas.</p>
+              </div>
             </div>
 
-            <div class="risk-meter" id="riskMeter">
-              <strong id="scenarioRisk">0%</strong>
-              <span>risco</span>
-            </div>
-
-            <div class="diagnostic" id="scenarioDiagnostic">
-              Execute um cenário para visualizar o diagnóstico.
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Componente</th>
+                    <th>Identificação</th>
+                    <th>Status</th>
+                    <th>Leitura</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="simulationTrace"></tbody>
+              </table>
             </div>
           </article>
         </div>
 
-        <article class="panel">
-          <div class="panel-title">
-            <div>
-              <h3>Curva prevista</h3>
-              <p>Resposta simulada do cenário selecionado.</p>
+        <div class="tab-panel" id="tab-assistant">
+          <article class="section-card">
+            <div class="card-title">
+              <div>
+                <h3>Assistente técnico</h3>
+                <p>Área visual reservada para explicações e recomendações do protótipo.</p>
+              </div>
             </div>
-            <span>mbar × segundos</span>
-          </div>
 
-          <div class="canvas-wrap">
-            <canvas id="scenarioCanvas" width="900" height="300"></canvas>
+            <div class="assistant-box">
+              <strong>Resumo automático</strong>
+              <p id="assistantText">Execute uma simulação para gerar um resumo técnico.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="tab-panel" id="tab-technical">
+          <div class="dashboard-grid">
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Bomba primária</h3>
+                  <p>Leybold SOGEVAC SV 630 B</p>
+                </div>
+              </div>
+              <div class="spec-list" id="primarySpecs"></div>
+            </article>
+
+            <article class="section-card">
+              <div class="card-title">
+                <div>
+                  <h3>Bomba secundária</h3>
+                  <p>Leybold RUVAC WSU 2001</p>
+                </div>
+              </div>
+              <div class="spec-list" id="rootsSpecs"></div>
+            </article>
           </div>
-        </article>
+        </div>
       </section>
 
-      <section id="historico" class="page">
-        <div class="page-title">
+      <section class="view" id="history">
+        <div class="section-head">
           <div>
-            <span class="eyebrow">Rastreabilidade</span>
             <h2>Histórico</h2>
-            <p>Registros locais de operações concluídas ou abortadas.</p>
+            <p>Registro local de ciclos e simulações executadas no protótipo.</p>
           </div>
+          <button class="btn neutral" id="btnClearHistory">Limpar histórico</button>
         </div>
 
-        <article class="panel">
-          <div class="panel-title">
+        <article class="section-card">
+          <div class="card-title">
             <div>
-              <h3>Histórico de operações</h3>
-              <p>Consulta básica dos ciclos executados.</p>
+              <h3>Ciclos e simulações</h3>
+              <p>Rastreabilidade simplificada.</p>
             </div>
-            <span id="historyCount">0 registros</span>
+            <span class="tag" id="historyCount">0 registros</span>
           </div>
 
-          <div class="toolbar">
-            <input id="historySearch" placeholder="Filtrar por status, operador, tanque..." />
-            <button class="btn neutral" id="btnClearHistory">Limpar histórico</button>
-          </div>
+          <input class="search-input" id="historySearch" placeholder="Filtrar por status, tipo, tanque ou data..." />
 
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>ID</th>
+                  <th>Tipo</th>
                   <th>Data/Hora</th>
-                  <th>Tanques</th>
-                  <th>Operador</th>
-                  <th>Pressão final</th>
-                  <th>Duração</th>
                   <th>Status</th>
+                  <th>Pressão final</th>
+                  <th>Risco</th>
+                  <th>Duração</th>
                 </tr>
               </thead>
               <tbody id="historyTable"></tbody>
@@ -360,103 +475,88 @@
         </article>
       </section>
 
-      <section id="relatorios" class="page">
-        <div class="page-title">
+      <section class="view" id="reports">
+        <div class="section-head">
           <div>
-            <span class="eyebrow">Análise</span>
             <h2>Relatórios</h2>
-            <p>Resumo gerencial gerado a partir do histórico local do protótipo.</p>
+            <p>Filtros e auditoria dos registros locais.</p>
           </div>
         </div>
 
-        <div class="kpi-grid">
-          <article class="kpi-card">
-            <span>Total</span>
+        <div class="tabs" id="reportTabs">
+          <button class="tab active" data-report-tab="operations">Operações</button>
+          <button class="tab" data-report-tab="simulations">Simulações</button>
+        </div>
+
+        <div class="report-grid">
+          <article class="metric-card">
+            <span>Total de registros</span>
             <strong id="reportTotal">0</strong>
-            <small>operações</small>
+            <small>Operações e simulações</small>
           </article>
 
-          <article class="kpi-card">
-            <span>Concluídas</span>
-            <strong id="reportSuccess">0</strong>
-            <small>ciclos aprovados</small>
+          <article class="metric-card">
+            <span>Aprovados</span>
+            <strong id="reportOk">0</strong>
+            <small>Status operacional</small>
           </article>
 
-          <article class="kpi-card">
-            <span>Abortadas</span>
-            <strong id="reportAbort">0</strong>
-            <small>interrupções</small>
+          <article class="metric-card">
+            <span>Atenção/Crítico</span>
+            <strong id="reportWarn">0</strong>
+            <small>Itens com restrição</small>
           </article>
 
-          <article class="kpi-card">
+          <article class="metric-card">
             <span>Menor pressão</span>
-            <strong id="reportMin">--</strong>
-            <small>melhor resultado</small>
+            <strong id="reportMinPressure">--</strong>
+            <small>Melhor resultado</small>
           </article>
         </div>
 
-        <article class="panel">
-          <div class="panel-title">
+        <article class="section-card">
+          <div class="card-title">
             <div>
               <h3>Relatório resumido</h3>
-              <p>Texto automático a partir dos registros.</p>
+              <p>Texto gerado a partir dos registros locais.</p>
             </div>
-            <span>local</span>
           </div>
 
-          <div id="reportText" class="report-box"></div>
+          <div class="report-text" id="reportText"></div>
 
-          <div class="toolbar end">
+          <div class="section-actions bottom">
             <button class="btn neutral" id="btnExportJson">Exportar JSON</button>
             <button class="btn neutral" id="btnPrint">Imprimir</button>
           </div>
         </article>
       </section>
 
-      <section id="dados" class="page">
-        <div class="page-title">
+      <section class="view" id="parameters">
+        <div class="section-head">
           <div>
-            <span class="eyebrow">Referência técnica</span>
-            <h2>Dados Técnicos</h2>
-            <p>Informações de referência para o protótipo e futuras validações.</p>
+            <h2>Parâmetros</h2>
+            <p>Cadastros técnicos usados na operação e no gêmeo digital.</p>
           </div>
         </div>
 
-        <div class="technical-grid">
-          <article class="panel">
-            <div class="panel-title">
-              <div>
-                <h3>Unidades de medida</h3>
-                <p>Base utilizada na interface.</p>
-              </div>
-              <span>tabela</span>
-            </div>
-
-            <table class="simple-table">
-              <tr><th>Grandeza</th><th>Unidade</th><th>Uso</th></tr>
-              <tr><td>Pressão</td><td>mbar</td><td>Pressão atual, alvo e curva de vácuo</td></tr>
-              <tr><td>Tempo</td><td>segundos</td><td>Duração do ciclo e simulações</td></tr>
-              <tr><td>Volume</td><td>litros</td><td>Capacidade dos tanques</td></tr>
-              <tr><td>Risco</td><td>%</td><td>Criticidade da simulação</td></tr>
-            </table>
-          </article>
-
-          <article class="panel">
-            <div class="panel-title">
-              <div>
-                <h3>Margem de erro planejada</h3>
-                <p>Regra futura para classificar o ciclo.</p>
-              </div>
-              <span>melhoria</span>
-            </div>
-
-            <div class="info-block">
-              <p><strong>Ideia:</strong> comparar valor esperado com valor medido ou simulado.</p>
-              <p><strong>Fórmula:</strong> desvio (%) = |medido - esperado| / esperado × 100.</p>
-              <p><strong>Status:</strong> operacional, atenção ou crítico.</p>
-            </div>
-          </article>
+        <div class="tabs" id="paramTabs">
+          <button class="tab active" data-param-tab="tanks">Tanques</button>
+          <button class="tab" data-param-tab="hoses">Mangueiras</button>
+          <button class="tab" data-param-tab="recipes">Receitas</button>
+          <button class="tab" data-param-tab="formulas">Fórmulas</button>
+          <button class="tab" data-param-tab="operators">Operadores</button>
         </div>
+
+        <article class="section-card">
+          <div class="card-title">
+            <div>
+              <h3 id="paramTitle">Tanques</h3>
+              <p id="paramSubtitle">Cadastro visual dos tanques do processo.</p>
+            </div>
+          </div>
+
+          <div id="paramContent"></div>
+        </article>
       </section>
     </main>
   </div>
